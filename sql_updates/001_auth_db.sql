@@ -1,0 +1,46 @@
+-- ============================================================
+-- 001_auth_db.sql  ──  RÉFÉRENCE SEULEMENT
+-- ============================================================
+-- ⚠️  NE PAS EXÉCUTER SI MIM_Logiciel EXISTE DÉJÀ !
+-- ⚠️  Cette base est gérée par EF Core Code First (LogicielMIM C#).
+--     Les migrations EF créent et maintiennent automatiquement
+--     la table Utilisateurs.  Ce script est fourni uniquement
+--     comme RÉFÉRENCE DOCUMENTAIRE de la structure exacte.
+-- ============================================================
+--
+-- Pour créer la BDD proprement, lancer le LogicielMIM C# :
+--   dotnet ef database update
+-- ou démarrer l'application — EF applique les migrations seul.
+-- ============================================================
+
+-- CREATE DATABASE IF NOT EXISTS MIM_Logiciel
+--     CHARACTER SET utf8mb4
+--     COLLATE utf8mb4_unicode_ci;
+
+-- USE MIM_Logiciel;
+
+-- ── Structure EXACTE générée par EF Migration (Initial) ──────
+-- CREATE TABLE Utilisateurs (
+--     IdUtilisateur        INT             NOT NULL AUTO_INCREMENT,
+--     Nom                  VARCHAR(100)    NOT NULL,
+--     Prenom               VARCHAR(100)    NOT NULL,
+--     Email                VARCHAR(255)    NOT NULL,
+--     MotDePasseHashe      VARCHAR(255)    NOT NULL,
+--       -- Stockage : bcrypt ($2a$/$2b$) OU SHA256 hex (C# legacy)
+--     MotDePasseTemporaire VARCHAR(255)    NULL,
+--     EstPremiereConnexion TINYINT(1)      NOT NULL DEFAULT 1,
+--     Role                 VARCHAR(20)     NOT NULL,
+--       -- Valeurs possibles (enum C#) : 'ADMIN' | 'UTILISATEUR'
+--     DateCreation         DATETIME(6)     NOT NULL,
+--     CONSTRAINT PK_Utilisateurs PRIMARY KEY (IdUtilisateur)
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ── Exemple d'insertion admin (NON géré par EF) ──────────────
+-- Générer un hash bcrypt : node -e "require('bcrypt').hash('VotreMotDePasse',10).then(console.log)"
+--
+-- INSERT INTO Utilisateurs
+--   (Nom, Prenom, Email, MotDePasseHashe, MotDePasseTemporaire, EstPremiereConnexion, Role, DateCreation)
+-- VALUES
+--   ('Dupont', 'Jean', 'admin@foselev.fr',
+--    '$2b$10$XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+--    NULL, 0, 'ADMIN', NOW());
