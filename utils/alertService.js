@@ -12,9 +12,11 @@ const transporter = nodemailer.createTransport({
 });
 
 const logoPath = path.join(__dirname, '../assets/logo_MIM.png');
+const rawFrontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+const FRONTEND_URL = rawFrontendUrl.replace(/\/+$/, '').replace(/(https?:\/\/[^/]+).*/, '$1');
 
 // ── HTML email templates ───────────────────────────────────────────────────────
-function buildEmailHtml(habilitation, daysLeft, recipientName) {
+function buildEmailHtml(habilitation, daysLeft, recipientName, documentUrl) {
     const isExpired = daysLeft <= 0;
     const accentColor = isExpired ? '#dc2626' : '#f97316';
     const accentLight = isExpired ? '#fef2f2' : '#fff7ed';
@@ -40,7 +42,7 @@ function buildEmailHtml(habilitation, daysLeft, recipientName) {
         <!-- Header with logo -->
         <tr>
           <td style="background:#ffffff;padding:24px 36px;text-align:center;border-bottom:3px solid #f97316;">
-            <img src="cid:logo_mim" alt="MIM Foselev" style="max-width:110px;height:auto;" />
+            <img src="cid:logo_mim" alt="MIM Foselev" style="max-width:80px;height:auto;" />
           </td>
         </tr>
 
@@ -96,11 +98,11 @@ function buildEmailHtml(habilitation, daysLeft, recipientName) {
           </td>
         </tr>
 
-        ${habilitation.public_url ? `
+        ${documentUrl ? `
         <!-- CTA Button -->
         <tr>
           <td style="padding:0 36px 32px 36px;text-align:center;">
-            <a href="${habilitation.public_url}"
+            <a href="${documentUrl}"
                style="display:inline-block;background-color:#f97316;color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:12px 24px;border-radius:6px;">
               Voir le document
             </a>
@@ -148,11 +150,12 @@ async function sendAlertToAll(habilitation, daysLeft) {
 
     for (const recipient of recipients) {
         try {
+        const managementUrl = `${FRONTEND_URL}/gestion/${habilitation.id}`;
             await transporter.sendMail({
                 from: `"MIM Habilitations" <${senderEmail}>`,
                 to: recipient.email,
                 subject,
-                html: buildEmailHtml(habilitation, daysLeft, recipient.name || ''),
+          html: buildEmailHtml(habilitation, daysLeft, recipient.name || '', managementUrl),
                 attachments: [
                     {
                         filename: 'logo_MIM.png',
