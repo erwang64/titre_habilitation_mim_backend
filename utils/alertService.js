@@ -40,7 +40,7 @@ function buildEmailHtml(habilitation, daysLeft, recipientName) {
         <!-- Header with logo -->
         <tr>
           <td style="background:#ffffff;padding:24px 36px;text-align:center;border-bottom:3px solid #f97316;">
-            <img src="cid:logo_mim" alt="MIM Foselev" style="max-width:80px;height:auto;" />
+            <img src="cid:logo_mim" alt="MIM Foselev" style="max-width:110px;height:auto;" />
           </td>
         </tr>
 
