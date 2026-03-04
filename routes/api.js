@@ -42,6 +42,7 @@ router.get('/me', verifyToken, authController.me);
 // ── Habilitations ──────────────────────────────────────────────
 // Public URL access (optionalAuth so private docs get blocked)
 router.get('/public/:token', optionalAuth, habilitationController.getByPublicToken);
+router.get('/habilitations/public/:token', optionalAuth, habilitationController.getByPublicToken);
 
 // List all (admin)
 router.get('/habilitations', verifyToken, habilitationController.getAll);
