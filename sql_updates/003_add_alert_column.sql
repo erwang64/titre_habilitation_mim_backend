@@ -6,6 +6,19 @@
 
 USE MIM_Habilitations;
 
-ALTER TABLE habilitations
-    ADD COLUMN IF NOT EXISTS last_alert_sent DATE DEFAULT NULL
-        COMMENT 'Date du dernier envoi d\'alerte email';
+SET @col_exists = (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = 'MIM_Habilitations'
+      AND TABLE_NAME   = 'habilitations'
+      AND COLUMN_NAME  = 'last_alert_sent'
+);
+
+SET @sql = IF(
+    @col_exists = 0,
+    'ALTER TABLE habilitations ADD COLUMN last_alert_sent DATE DEFAULT NULL COMMENT ''Date du dernier envoi d''''alerte email''',
+    'SELECT ''Column last_alert_sent already exists, skipping.'''
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

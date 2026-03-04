@@ -4,7 +4,9 @@ const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+// Strip any path from FRONTEND_URL so QR code URLs are correctly formed
+const rawFrontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+const FRONTEND_URL = rawFrontendUrl.replace(/\/+$/, '').replace(/(https?:\/\/[^/]+).*/, '$1');
 
 // GET /api/habilitations — all records
 exports.getAll = async (req, res) => {
@@ -108,7 +110,7 @@ exports.create = async (req, res) => {
         res.status(201).json(newRows[0]);
     } catch (error) {
         console.error('create error:', error);
-        res.status(500).json({ message: 'Erreur serveur lors de la création' });
+        res.status(500).json({ message: 'Erreur serveur lors de la création', detail: error.message });
     }
 };
 

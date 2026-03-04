@@ -19,8 +19,13 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 // Middleware
+const rawFrontendUrl = process.env.FRONTEND_URL;
+const allowedOrigin = rawFrontendUrl
+    ? rawFrontendUrl.replace(/\/+$/, '').replace(/(https?:\/\/[^/]+).*/, '$1')
+    : '*';
+
 app.use(cors({
-    origin: process.env.FRONTEND_URL || '*',
+    origin: allowedOrigin,
     credentials: true
 }));
 app.use(bodyParser.json());
