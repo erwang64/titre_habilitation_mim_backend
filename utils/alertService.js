@@ -127,19 +127,22 @@ async function sendAlertToAll(habilitation, daysLeft) {
     const senderEmail = process.env.EMAIL_USER;
     if (!senderEmail) {
         console.warn('[ALERT] EMAIL_USER non configuré, envoi ignoré.');
-        return;
+    return { sent: 0, failed: 0, skippedReason: 'EMAIL_USER non configuré' };
     }
 
     const [recipients] = await appDB.execute('SELECT * FROM email_recipients');
     if (recipients.length === 0) {
         console.log('[ALERT] Aucun destinataire configuré.');
-        return;
+    return { sent: 0, failed: 0, skippedReason: 'Aucun destinataire configuré' };
     }
 
     const isExpired = daysLeft <= 0;
     const subject = isExpired
         ? `⛔ Titre expiré — ${habilitation.titre} (${habilitation.prenom} ${habilitation.nom})`
         : `⚠️ Expiration dans ${daysLeft}j — ${habilitation.titre} (${habilitation.prenom} ${habilitation.nom})`;
+
+    let sent = 0;
+    let failed = 0;
 
     for (const recipient of recipients) {
         try {
@@ -149,54 +152,126 @@ async function sendAlertToAll(habilitation, daysLeft) {
                 subject,
                 html: buildEmailHtml(habilitation, daysLeft, recipient.name || '')
             });
+        sent += 1;
             console.log(`[ALERT] Email envoyé à ${recipient.email} pour "${habilitation.titre}"`);
         } catch (err) {
+        failed += 1;
             console.error(`[ALERT] Échec envoi à ${recipient.email}:`, err.message);
         }
     }
+
+    return { sent, failed, skippedReason: null };
 }
 
 // ── Daily cron check ───────────────────────────────────────────────────────────
-exports.checkExpiringHabilitations = async () => {
+  exports.checkExpiringHabilitations = async (options = {}) => {
+    const force = !!options.force;
+    const report = {
+      bientotCandidates: 0,
+      expiredCandidates: 0,
+      mailsSent: 0,
+      mailsFailed: 0,
+      skipped: [],
+      errors: []
+    };
+
     try {
         // Fetch all habilitations expiring within 30 days (not yet alerted)
+      const bientotFilter = force
+        ? ''
+        : 'AND (alert_bientot_sent IS NULL OR alert_bientot_sent < DATE_SUB(CURDATE(), INTERVAL 7 DAY))';
+
         const [bientotRows] = await appDB.execute(
             `SELECT * FROM habilitations
              WHERE date_validite > CURDATE()
                AND date_validite <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-               AND (alert_bientot_sent IS NULL OR alert_bientot_sent < DATE_SUB(CURDATE(), INTERVAL 7 DAY))`
+           ${bientotFilter}`
         );
+      report.bientotCandidates = bientotRows.length;
 
         for (const hab of bientotRows) {
             const daysLeft = Math.ceil((new Date(hab.date_validite) - new Date().setHours(0,0,0,0)) / 86400000);
             try {
-                await sendAlertToAll(hab, daysLeft);
-                await appDB.execute('UPDATE habilitations SET alert_bientot_sent = CURDATE() WHERE id = ?', [hab.id]);
+          const sendResult = await sendAlertToAll(hab, daysLeft);
+          report.mailsSent += sendResult.sent;
+          report.mailsFailed += sendResult.failed;
+          if (sendResult.skippedReason) {
+            report.skipped.push({ id: hab.id, type: 'bientot', reason: sendResult.skippedReason });
+          }
+          if (sendResult.sent > 0) {
+            await appDB.execute('UPDATE habilitations SET alert_bientot_sent = CURDATE() WHERE id = ?', [hab.id]);
+          }
             } catch (err) {
+          report.errors.push({ id: hab.id, type: 'bientot', message: err.message });
                 console.error(`[ALERT] Erreur traitement habilitation ${hab.id}:`, err.message);
             }
         }
 
         // Fetch all expired habilitations not yet alerted as "expired"
+      const expiredFilter = force
+        ? ''
+        : 'AND (alert_expired_sent IS NULL OR alert_expired_sent < DATE_SUB(CURDATE(), INTERVAL 30 DAY))';
+
         const [expiredRows] = await appDB.execute(
             `SELECT * FROM habilitations
              WHERE date_validite < CURDATE()
-               AND (alert_expired_sent IS NULL OR alert_expired_sent < DATE_SUB(CURDATE(), INTERVAL 30 DAY))`
+           ${expiredFilter}`
         );
+      report.expiredCandidates = expiredRows.length;
 
         for (const hab of expiredRows) {
             const daysLeft = Math.ceil((new Date(hab.date_validite) - new Date().setHours(0,0,0,0)) / 86400000);
             try {
-                await sendAlertToAll(hab, daysLeft);
-                await appDB.execute('UPDATE habilitations SET alert_expired_sent = CURDATE() WHERE id = ?', [hab.id]);
+          const sendResult = await sendAlertToAll(hab, daysLeft);
+          report.mailsSent += sendResult.sent;
+          report.mailsFailed += sendResult.failed;
+          if (sendResult.skippedReason) {
+            report.skipped.push({ id: hab.id, type: 'expired', reason: sendResult.skippedReason });
+          }
+          if (sendResult.sent > 0) {
+            await appDB.execute('UPDATE habilitations SET alert_expired_sent = CURDATE() WHERE id = ?', [hab.id]);
+          }
             } catch (err) {
+          report.errors.push({ id: hab.id, type: 'expired', message: err.message });
                 console.error(`[ALERT] Erreur traitement habilitation expirée ${hab.id}:`, err.message);
             }
         }
 
-        const total = bientotRows.length + expiredRows.length;
         console.log(`[ALERT] Vérification terminée — ${bientotRows.length} bientôt expiré(s), ${expiredRows.length} expiré(s).`);
+      return report;
     } catch (error) {
         console.error('[ALERT] Erreur vérification habilitations:', error);
+      report.errors.push({ id: null, type: 'global', message: error.message });
+      return report;
     }
 };
+
+  exports.sendNotificationTest = async () => {
+    const [rows] = await appDB.execute(
+      `SELECT * FROM habilitations ORDER BY date_validite ASC LIMIT 1`
+    );
+
+    if (rows.length === 0) {
+      return {
+        mailsSent: 0,
+        mailsFailed: 0,
+        skipped: [{ reason: 'Aucune habilitation disponible pour test' }]
+      };
+    }
+
+    const hab = rows[0];
+    const daysLeft = Math.ceil((new Date(hab.date_validite) - new Date().setHours(0, 0, 0, 0)) / 86400000);
+    const sendResult = await sendAlertToAll(hab, daysLeft);
+
+    return {
+      mailsSent: sendResult.sent,
+      mailsFailed: sendResult.failed,
+      skipped: sendResult.skippedReason ? [{ reason: sendResult.skippedReason }] : [],
+      testHabilitation: {
+        id: hab.id,
+        titre: hab.titre,
+        titulaire: `${hab.prenom} ${hab.nom}`,
+        date_validite: hab.date_validite
+      }
+    };
+  };

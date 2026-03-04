@@ -1,4 +1,5 @@
 const { appDB } = require('../config/db');
+const { checkExpiringHabilitations, sendNotificationTest } = require('../utils/alertService');
 
 // GET /api/notifications/recipients
 exports.getRecipients = async (req, res) => {
@@ -39,5 +40,27 @@ exports.deleteRecipient = async (req, res) => {
     } catch (error) {
         console.error('deleteRecipient error:', error);
         res.status(500).json({ message: 'Erreur lors de la suppression.' });
+    }
+};
+
+// POST /api/notifications/run-check
+exports.runNotificationCheck = async (req, res) => {
+    try {
+        const report = await checkExpiringHabilitations({ force: true });
+        res.json({ message: 'Vérification lancée', report });
+    } catch (error) {
+        console.error('runNotificationCheck error:', error);
+        res.status(500).json({ message: 'Erreur lors de la vérification', detail: error.message });
+    }
+};
+
+// POST /api/notifications/test
+exports.sendTestNotification = async (req, res) => {
+    try {
+        const result = await sendNotificationTest();
+        res.json({ message: 'Test email exécuté', result });
+    } catch (error) {
+        console.error('sendTestNotification error:', error);
+        res.status(500).json({ message: 'Erreur lors du test email', detail: error.message });
     }
 };

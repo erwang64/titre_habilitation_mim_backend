@@ -73,5 +73,7 @@ router.post('/habilitations/:id/generate-url', verifyToken, verifyAdmin, habilit
 router.get('/notifications/recipients', verifyToken, verifyAdmin, emailController.getRecipients);
 router.post('/notifications/recipients', verifyToken, verifyAdmin, emailController.addRecipient);
 router.delete('/notifications/recipients/:id', verifyToken, verifyAdmin, emailController.deleteRecipient);
+router.post('/notifications/run-check', verifyToken, verifyAdmin, emailController.runNotificationCheck);
+router.post('/notifications/test', verifyToken, verifyAdmin, emailController.sendTestNotification);
 
 module.exports = router;
