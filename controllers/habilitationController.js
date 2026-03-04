@@ -12,7 +12,7 @@ const FRONTEND_URL = rawFrontendUrl.replace(/\/+$/, '').replace(/(https?:\/\/[^/
 exports.getAll = async (req, res) => {
     try {
         const [rows] = await appDB.execute(
-            `SELECT id, titre, nom, prenom, date_validite, visibilite, public_token, fichier_nom, created_at,
+            `SELECT id, titre, nom, prenom, date_validite, visibilite, public_token, fichier_path, fichier_nom, public_url, qr_code, created_at,
                     CASE 
                         WHEN date_validite < CURDATE() THEN 'expire'
                         WHEN date_validite <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'bientot'
@@ -75,7 +75,8 @@ exports.getByPublicToken = async (req, res) => {
         if (hab.visibilite === 'prive' && !req.user) {
             return res.status(401).json({ message: 'Ce document est privé. Veuillez vous connecter.' });
         }
-        res.json(hab);
+        const pdfUrl = hab.fichier_path ? `/uploads/${hab.fichier_path}` : null;
+        res.json({ habilitation: hab, pdfUrl });
     } catch (error) {
         console.error('getByPublicToken error:', error);
         res.status(500).json({ message: 'Erreur serveur' });
@@ -95,7 +96,7 @@ exports.create = async (req, res) => {
         const fichier_path = req.file.filename;
         const fichier_nom = req.file.originalname;
 
-        const publicUrl = `${FRONTEND_URL}/habilitation/${public_token}`;
+        const publicUrl = `${FRONTEND_URL}/h/${public_token}`;
         const qr_code = await QRCode.toDataURL(publicUrl);
 
         await appDB.execute(
@@ -190,7 +191,7 @@ exports.generateUrl = async (req, res) => {
         if (rows.length === 0) return res.status(404).json({ message: 'Habilitation non trouvée' });
 
         const new_token = uuidv4();
-        const publicUrl = `${FRONTEND_URL}/habilitation/${new_token}`;
+        const publicUrl = `${FRONTEND_URL}/h/${new_token}`;
         const qr_code = await QRCode.toDataURL(publicUrl);
 
         await appDB.execute(
