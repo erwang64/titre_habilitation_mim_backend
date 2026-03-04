@@ -30,7 +30,11 @@ app.use(cors({
 }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use('/uploads', express.static(uploadsDir));
+// Uploads are public files — allow any origin so react-pdf / browsers can fetch them cross-origin
+app.use('/uploads', (req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    next();
+}, express.static(uploadsDir));
 
 // Routes
 app.use('/api', apiRoutes);
