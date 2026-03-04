@@ -56,8 +56,8 @@ router.get('/habilitations/:id', verifyToken, habilitationController.getOne);
 // Create
 router.post('/habilitations', verifyToken, verifyAdmin, upload.single('fichier'), habilitationController.create);
 
-// Update (metadata only)
-router.put('/habilitations/:id', verifyToken, verifyAdmin, habilitationController.update);
+// Update (metadata only) — upload.none() parses multipart/form-data fields sent by the frontend
+router.put('/habilitations/:id', verifyToken, verifyAdmin, upload.none(), habilitationController.update);
 
 // Replace file
 router.put('/habilitations/:id/fichier', verifyToken, verifyAdmin, upload.single('fichier'), habilitationController.updateFile);
