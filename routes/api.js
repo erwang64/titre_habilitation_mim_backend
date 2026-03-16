@@ -8,6 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 const authController = require('../controllers/authController');
 const habilitationController = require('../controllers/habilitationController');
 const emailController = require('../controllers/emailController');
+const logController = require('../controllers/logController');
 const { verifyToken, verifyAdmin, optionalAuth } = require('../middleware/authMiddleware');
 
 // ── Multer config ──────────────────────────────────────────────
@@ -75,5 +76,8 @@ router.post('/notifications/recipients', verifyToken, verifyAdmin, emailControll
 router.delete('/notifications/recipients/:id', verifyToken, verifyAdmin, emailController.deleteRecipient);
 router.post('/notifications/run-check', verifyToken, verifyAdmin, emailController.runNotificationCheck);
 router.post('/notifications/test', verifyToken, verifyAdmin, emailController.sendTestNotification);
+
+// ── Logs ───────────────────────────────────────────────────
+router.get('/logs', verifyToken, verifyAdmin, logController.getAll);
 
 module.exports = router;

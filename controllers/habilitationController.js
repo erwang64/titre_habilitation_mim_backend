@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
+const { createLog } = require('./logController');
 
 // Strip any path from FRONTEND_URL so QR code URLs are correctly formed
 const rawFrontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -167,10 +168,24 @@ exports.updateFile = async (req, res) => {
 exports.remove = async (req, res) => {
     try {
         const { id } = req.params;
+        const { raison } = req.body || {};
+        if (!raison || !raison.trim()) {
+            return res.status(400).json({ message: 'La raison de la suppression est obligatoire.' });
+        }
+
         const [rows] = await appDB.execute('SELECT * FROM habilitations WHERE id = ?', [id]);
         if (rows.length === 0) return res.status(404).json({ message: 'Habilitation non trouvée' });
 
         const hab = rows[0];
+
+        // Log avant suppression
+        await createLog({
+            action: 'suppression',
+            habilitation: hab,
+            raison: raison.trim(),
+            user: req.user
+        });
+
         const uploadsDir = process.env.UPLOADS_PATH || path.join(__dirname, '..', 'uploads');
         const filePath = path.join(uploadsDir, hab.fichier_path);
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -187,8 +202,15 @@ exports.remove = async (req, res) => {
 exports.generateUrl = async (req, res) => {
     try {
         const { id } = req.params;
+        const { raison } = req.body || {};
+        if (!raison || !raison.trim()) {
+            return res.status(400).json({ message: 'La raison de la régénération est obligatoire.' });
+        }
+
         const [rows] = await appDB.execute('SELECT * FROM habilitations WHERE id = ?', [id]);
         if (rows.length === 0) return res.status(404).json({ message: 'Habilitation non trouvée' });
+
+        const hab = rows[0];
 
         const new_token = uuidv4();
         const publicUrl = `${FRONTEND_URL}/h/${new_token}`;
@@ -198,6 +220,14 @@ exports.generateUrl = async (req, res) => {
             'UPDATE habilitations SET public_token = ?, public_url = ?, qr_code = ? WHERE id = ?',
             [new_token, publicUrl, qr_code, id]
         );
+
+        // Log après régénération
+        await createLog({
+            action: 'regeneration_qr',
+            habilitation: hab,
+            raison: raison.trim(),
+            user: req.user
+        });
 
         const [updated] = await appDB.execute('SELECT * FROM habilitations WHERE id = ?', [id]);
         res.json(updated[0]);
