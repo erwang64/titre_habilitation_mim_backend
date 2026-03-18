@@ -116,20 +116,34 @@ exports.create = async (req, res) => {
     }
 };
 
-// PUT /api/habilitations/:id — update metadata
+// PUT /api/habilitations/:id — update metadata and optionally file
 exports.update = async (req, res) => {
     try {
         const { titre, nom, prenom, date_validite, visibilite } = req.body;
         const { id } = req.params;
 
-        await appDB.execute(
-            `UPDATE habilitations SET titre = ?, nom = ?, prenom = ?, date_validite = ?, visibilite = ? WHERE id = ?`,
-            [titre, nom, prenom, date_validite, visibilite, id]
-        );
-
         const [rows] = await appDB.execute('SELECT * FROM habilitations WHERE id = ?', [id]);
         if (rows.length === 0) return res.status(404).json({ message: 'Habilitation non trouvée' });
-        res.json(rows[0]);
+
+        let queryArgs = [titre, nom, prenom, date_validite, visibilite, id];
+        let queryStr = `UPDATE habilitations SET titre = ?, nom = ?, prenom = ?, date_validite = ?, visibilite = ? WHERE id = ?`;
+
+        if (req.file) {
+            const old = rows[0];
+            if (old.fichier_path) {
+                const uploadsDir = process.env.UPLOADS_PATH || path.join(__dirname, '..', 'uploads');
+                const oldFilePath = path.join(uploadsDir, old.fichier_path);
+                if (fs.existsSync(oldFilePath)) fs.unlinkSync(oldFilePath);
+            }
+
+            queryStr = `UPDATE habilitations SET titre = ?, nom = ?, prenom = ?, date_validite = ?, visibilite = ?, fichier_path = ?, fichier_nom = ? WHERE id = ?`;
+            queryArgs = [titre, nom, prenom, date_validite, visibilite, req.file.filename, req.file.originalname, id];
+        }
+
+        await appDB.execute(queryStr, queryArgs);
+
+        const [updatedRows] = await appDB.execute('SELECT * FROM habilitations WHERE id = ?', [id]);
+        res.json(updatedRows[0]);
     } catch (error) {
         console.error('update error:', error);
         res.status(500).json({ message: 'Erreur serveur lors de la mise à jour' });
