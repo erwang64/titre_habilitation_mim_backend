@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS habilitations (
     date_validite   DATE            NOT NULL                    COMMENT 'Date d\'expiration de l\'habilitation',
     visibilite      ENUM('public','prive') NOT NULL DEFAULT 'prive'
                                                                 COMMENT 'public = accès sans login | prive = login requis',
+    commentaire     TEXT            DEFAULT NULL                COMMENT 'Commentaire interne (ex: manque signature, photo manquante)',
     public_token    VARCHAR(36)     NOT NULL UNIQUE             COMMENT 'UUID pour l\'URL publique',
     public_url      VARCHAR(1000)   DEFAULT NULL                COMMENT 'URL complète de la page publique',
     qr_code         MEDIUMTEXT      DEFAULT NULL                COMMENT 'QR code en base64 (data:image/png;base64,...)',

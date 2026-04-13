@@ -13,7 +13,7 @@ const FRONTEND_URL = rawFrontendUrl.replace(/\/+$/, '').replace(/(https?:\/\/[^/
 exports.getAll = async (req, res) => {
     try {
         const [rows] = await appDB.execute(
-            `SELECT id, titre, nom, prenom, date_validite, visibilite, public_token, fichier_path, fichier_nom, public_url, qr_code, created_at,
+            `SELECT id, titre, nom, prenom, date_validite, visibilite, commentaire, public_token, fichier_path, fichier_nom, public_url, qr_code, created_at,
                     CASE 
                         WHEN date_validite < CURDATE() THEN 'expire'
                         WHEN date_validite <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'bientot'
@@ -87,7 +87,7 @@ exports.getByPublicToken = async (req, res) => {
 // POST /api/habilitations
 exports.create = async (req, res) => {
     try {
-        const { titre, nom, prenom, date_validite, visibilite } = req.body;
+        const { titre, nom, prenom, date_validite, visibilite, commentaire } = req.body;
         if (!req.file) return res.status(400).json({ message: 'Fichier PDF requis' });
         if (!titre || !nom || !prenom || !date_validite || !visibilite) {
             return res.status(400).json({ message: 'Tous les champs sont requis' });
@@ -101,9 +101,9 @@ exports.create = async (req, res) => {
         const qr_code = await QRCode.toDataURL(publicUrl);
 
         await appDB.execute(
-            `INSERT INTO habilitations (titre, nom, prenom, date_validite, visibilite, public_token, fichier_path, fichier_nom, public_url, qr_code)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [titre, nom, prenom, date_validite, visibilite, public_token, fichier_path, fichier_nom, publicUrl, qr_code]
+            `INSERT INTO habilitations (titre, nom, prenom, date_validite, visibilite, commentaire, public_token, fichier_path, fichier_nom, public_url, qr_code)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [titre, nom, prenom, date_validite, visibilite, commentaire || null, public_token, fichier_path, fichier_nom, publicUrl, qr_code]
         );
 
         const [newRows] = await appDB.execute(
@@ -119,14 +119,14 @@ exports.create = async (req, res) => {
 // PUT /api/habilitations/:id — update metadata and optionally file
 exports.update = async (req, res) => {
     try {
-        const { titre, nom, prenom, date_validite, visibilite } = req.body;
+        const { titre, nom, prenom, date_validite, visibilite, commentaire } = req.body;
         const { id } = req.params;
 
         const [rows] = await appDB.execute('SELECT * FROM habilitations WHERE id = ?', [id]);
         if (rows.length === 0) return res.status(404).json({ message: 'Habilitation non trouvée' });
 
-        let queryArgs = [titre, nom, prenom, date_validite, visibilite, id];
-        let queryStr = `UPDATE habilitations SET titre = ?, nom = ?, prenom = ?, date_validite = ?, visibilite = ? WHERE id = ?`;
+        let queryArgs = [titre, nom, prenom, date_validite, visibilite, commentaire || null, id];
+        let queryStr = `UPDATE habilitations SET titre = ?, nom = ?, prenom = ?, date_validite = ?, visibilite = ?, commentaire = ? WHERE id = ?`;
 
         if (req.file) {
             const old = rows[0];
@@ -136,8 +136,8 @@ exports.update = async (req, res) => {
                 if (fs.existsSync(oldFilePath)) fs.unlinkSync(oldFilePath);
             }
 
-            queryStr = `UPDATE habilitations SET titre = ?, nom = ?, prenom = ?, date_validite = ?, visibilite = ?, fichier_path = ?, fichier_nom = ? WHERE id = ?`;
-            queryArgs = [titre, nom, prenom, date_validite, visibilite, req.file.filename, req.file.originalname, id];
+            queryStr = `UPDATE habilitations SET titre = ?, nom = ?, prenom = ?, date_validite = ?, visibilite = ?, commentaire = ?, fichier_path = ?, fichier_nom = ? WHERE id = ?`;
+            queryArgs = [titre, nom, prenom, date_validite, visibilite, commentaire || null, req.file.filename, req.file.originalname, id];
         }
 
         await appDB.execute(queryStr, queryArgs);
