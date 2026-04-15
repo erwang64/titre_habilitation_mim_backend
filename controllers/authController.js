@@ -46,7 +46,8 @@ exports.login = async (req, res) => {
                 nom: user.Nom,
                 prenom: user.Prenom,
                 email: user.Email,
-                role: user.Role
+                role: user.Role,
+                estPremiereConnexion: user.EstPremiereConnexion === 1 || user.EstPremiereConnexion === true
             }
         });
 
